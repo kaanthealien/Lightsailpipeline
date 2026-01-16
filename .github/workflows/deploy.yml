@@ -42,15 +42,16 @@ jobs:
             --image my-app:latest
 
       # 6. Adım: Yeni Versiyonu Yayına Al (Deploy)
+      # 6. Adım: Yeni Versiyonu Yayına Al (Deploy)
       - name: Deploy New Version
         run: |
-          # En son yüklenen imajın adını değişkene alıyoruz
+          # 1. En son pushlanan imajı al
           IMAGE_NAME=$(aws lightsail get-container-images --service-name my-lightsail-service | jq -r '.containerImages[0].image')
           
-          # container-config.json içindeki imaj adını güncelliyoruz
+          # 2. Sadece imaj ismini JSON'a bas
           jq --arg img "$IMAGE_NAME" '.app.image = $img' infra/container-config.json > deploy.json
           
-          # Deployment komutunu çalıştırıyoruz
+          # 3. Deployment'ı yap
           aws lightsail create-container-service-deployment \
             --service-name my-lightsail-service \
             --containers file://deploy.json \
