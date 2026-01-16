@@ -42,7 +42,6 @@ jobs:
             --image my-app:latest
 
       # 6. Adım: Yeni Versiyonu Yayına Al (Deploy)
-      # 6. Adım: Yeni Versiyonu Yayına Al (Deploy)
       - name: Deploy New Version
         run: |
           # 1. En son pushlanan imajı al
