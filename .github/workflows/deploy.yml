@@ -1,0 +1,57 @@
+name: Deploy to AWS Lightsail
+
+on:
+  push:
+    branches:
+      - main 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Adım: Kodları GitHub sunucusuna çek
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 2. Adım: AWS Kimlik Bilgilerini Ayarla
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 3. Adım: Lightsail Kontrolü için eklentiyi kur (Lightsail Control Plugin)
+      - name: Install Lightsail Control Plugin
+        run: |
+          curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "lightsailctl"
+          sudo mv "lightsailctl" /usr/local/bin/
+          sudo chmod +x /usr/local/bin/lightsailctl
+
+      # 4. Adım: Docker Imajını Build Et
+      - name: Build Docker Image
+        run: docker build -t my-app:latest .
+
+      # 5. Adım: Imajı AWS Lightsail'e Gönder (Push)
+      - name: Push Image to Lightsail
+        run: |
+          aws lightsail push-container-image \
+            --service-name my-lightsail-service \
+            --label flask-app \
+            --image my-app:latest
+
+      # 6. Adım: Yeni Versiyonu Yayına Al (Deploy)
+      - name: Deploy New Version
+        run: |
+          # En son yüklenen imajın adını değişkene alıyoruz
+          IMAGE_NAME=$(aws lightsail get-container-images --service-name my-lightsail-service | jq -r '.containerImages[0].image')
+          
+          # container-config.json içindeki imaj adını güncelliyoruz
+          jq --arg img "$IMAGE_NAME" '.app.image = $img' infra/container-config.json > deploy.json
+          
+          # Deployment komutunu çalıştırıyoruz
+          aws lightsail create-container-service-deployment \
+            --service-name my-lightsail-service \
+            --containers file://deploy.json \
+            --public-endpoint '{"containerName":"app","containerPort":5000,"healthCheck":{"path":"/health"}}'
